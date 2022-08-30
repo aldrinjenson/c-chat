@@ -9,7 +9,7 @@
 #include <unistd.h>
 
 #define MAX_MESSAGE_LENGTH 1024
-#define MAX_USERNAME_LENGTH 40
+#define MAX_USERNAME_LENGTH 15
 
 int sockFd;
 void printErrorAndExit(const char *errorMsg) {
@@ -19,22 +19,18 @@ void printErrorAndExit(const char *errorMsg) {
 }
 
 struct messageObj {
-  char *message;
-  char *from;
+  char message[MAX_MESSAGE_LENGTH];
+  char from[MAX_MESSAGE_LENGTH];
 };
 
 void *receiveMessagesFromServer() {
   struct messageObj msgObj;
   while (1) {
-    // bzero(msgObj, 100);
     if (recv(sockFd, (char *)&msgObj, sizeof(msgObj), 0) == -1) {
       printErrorAndExit("Error in receiving...");
     } else {
-      printf("%s", msgObj.message);
-      printf("%s", msgObj.from);
-      if (!strlen(msgObj.message))
-        continue;
-      printf("\n%s: %s\n", msgObj.from, msgObj.message);
+      if (strlen(msgObj.message))
+        printf("\n%s: %s\n", msgObj.from, msgObj.message);
     }
   }
   return NULL;
@@ -68,7 +64,9 @@ int main(int argc, char **argv) {
 
   char username[MAX_USERNAME_LENGTH];
   printf("Enter username: ");
-  fgets(username, sizeof(username), stdin);
+  scanf("%s", username);
+  username[strlen(username)] = '\0';
+
   if (send(sockFd, username, sizeof(username), 0) == -1) {
     printErrorAndExit("Error in sending..");
   }
@@ -76,8 +74,7 @@ int main(int argc, char **argv) {
   char msg[MAX_MESSAGE_LENGTH];
   while (1) {
     bzero(msg, MAX_MESSAGE_LENGTH);
-    // fgets(msg, sizeof(msg), stdin);
-    scanf("%s", msg);
+    scanf("%[^\n]", msg);
     if (send(sockFd, msg, sizeof(msg), 0) == -1) {
       printErrorAndExit("Error in sending..");
     }

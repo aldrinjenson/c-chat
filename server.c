@@ -9,24 +9,26 @@
 #include <unistd.h>
 
 #define MAX_ALLOWED_CONNECTIONS 3
-#define MAX_USERNAME_LENGTH 40
+#define MAX_USERNAME_LENGTH 15
 #define MAX_MESSAGE_LENGTH 1024
 
 int sockFd;
+int errorFound = 0;
 struct socketObj {
   int socketFd;
-  char *username;
+  char username[MAX_USERNAME_LENGTH];
 };
 
 struct messageObj {
-  char *message;
-  char *from;
+  char message[MAX_MESSAGE_LENGTH];
+  char from[MAX_MESSAGE_LENGTH];
 } msgObj;
 
 struct socketObj connectedSockets[MAX_ALLOWED_CONNECTIONS];
 int connectedSocketsCount = 0;
 
 void printErrorAndExit(const char *errorMsg) {
+  errorFound = 1;
   perror(errorMsg);
   close(sockFd);
   for (int i = 0; i < connectedSocketsCount; i++) {
@@ -57,25 +59,25 @@ void *acceptNewSocketWhenNeeded() {
   }
   printf("%s has joined the chat", username);
   newSocketConn.socketFd = newSockFd1;
-  newSocketConn.username = username;
+  strcpy(newSocketConn.username, username);
   connectedSockets[connectedSocketsCount++] = newSocketConn;
 
   char msg[MAX_MESSAGE_LENGTH];
-  while (1) {
+  while (!errorFound) {
     bzero(msg, MAX_MESSAGE_LENGTH);
     if (recv(newSockFd1, msg, sizeof(msg), 0) == -1) {
       printErrorAndExit("Error in receiving msg");
     }
-    msgObj.from = username;
-    msgObj.message = msg;
+
+    strcpy(msgObj.from, username);
+    strcpy(msgObj.message, msg);
 
     printf("\n%s: %s\n", username, msg);
     for (int i = 0; i < connectedSocketsCount; i++) {
-      if (connectedSockets[i].socketFd == newSockFd1) {
+      if (connectedSockets[i].socketFd == newSockFd1)
         continue;
-      }
-      if (send(connectedSockets[i].socketFd, (char *)&msgObj, sizeof(msg), 0) ==
-          -1) {
+      if (send(connectedSockets[i].socketFd, (char *)&msgObj, sizeof(msgObj),
+               0) <= 0) {
         printf("Error in sending message");
       } else {
         printf("Message sent to client");
