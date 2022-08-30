@@ -1,4 +1,5 @@
 #include <netinet/in.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -7,6 +8,9 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#define MAX_MESSAGE_LENGTH 1024
+#define MAX_USERNAME_LENGTH 40
+
 int sockFd;
 void printErrorAndExit(const char *errorMsg) {
   perror(errorMsg);
@@ -14,9 +18,35 @@ void printErrorAndExit(const char *errorMsg) {
   exit(1);
 }
 
-int main() {
+struct messageObj {
+  char *message;
+  char *from;
+};
+
+void *receiveMessagesFromServer() {
+  struct messageObj msgObj;
+  while (1) {
+    // bzero(msgObj, 100);
+    if (recv(sockFd, (char *)&msgObj, sizeof(msgObj), 0) == -1) {
+      printErrorAndExit("Error in receiving...");
+    } else {
+      printf("%s", msgObj.message);
+      printf("%s", msgObj.from);
+      if (!strlen(msgObj.message))
+        continue;
+      printf("\n%s: %s\n", msgObj.from, msgObj.message);
+    }
+  }
+  return NULL;
+}
+
+int main(int argc, char **argv) {
+  if (argc < 2) {
+    printErrorAndExit("Enter port number as second argument!");
+  }
+
   struct sockaddr_in server;
-  int sockFd = socket(AF_INET, SOCK_STREAM, 0);
+  sockFd = socket(AF_INET, SOCK_STREAM, 0);
   if (sockFd == -1) {
     printErrorAndExit("Error in creating socket");
   } else {
@@ -24,7 +54,7 @@ int main() {
   }
 
   server.sin_addr.s_addr = INADDR_ANY;
-  server.sin_port = 8889;
+  server.sin_port = atoi(argv[1]);
   server.sin_family = AF_INET;
 
   if (connect(sockFd, (const struct sockaddr *)&server, sizeof(server)) == -1) {
@@ -33,21 +63,27 @@ int main() {
     printf("Successfully connected\n");
   }
 
-  char msg[100];
-  int count = 5;
+  pthread_t thread1;
+  pthread_create(&thread1, NULL, receiveMessagesFromServer, NULL);
+
+  char username[MAX_USERNAME_LENGTH];
+  printf("Enter username: ");
+  fgets(username, sizeof(username), stdin);
+  if (send(sockFd, username, sizeof(username), 0) == -1) {
+    printErrorAndExit("Error in sending..");
+  }
+
+  char msg[MAX_MESSAGE_LENGTH];
   while (1) {
-    bzero(msg, 100);
+    bzero(msg, MAX_MESSAGE_LENGTH);
+    // fgets(msg, sizeof(msg), stdin);
     scanf("%s", msg);
     if (send(sockFd, msg, sizeof(msg), 0) == -1) {
       printErrorAndExit("Error in sending..");
     }
-    bzero(msg, 100);
-    if (recv(sockFd, msg, sizeof(msg), 0) == -1) {
-      printErrorAndExit("Error in receiving..");
-    }
-    printf("\nServer: %s\n", msg);
     if (strncmp(msg, "exit", 4) == 0)
       break;
   }
+  pthread_exit(NULL);
   close(sockFd);
 }

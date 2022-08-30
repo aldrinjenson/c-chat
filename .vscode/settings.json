@@ -1,0 +1,5 @@
+{
+  "code-runner.executorMap": {
+    "c": "cd $dir && gcc $fileName -lpthread -o $fileNameWithoutExt.out && ./$fileNameWithoutExt.out 5002",
+  }
+}

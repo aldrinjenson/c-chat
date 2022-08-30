@@ -1,4 +1,5 @@
 #include <netinet/in.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -7,15 +8,87 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-int sockFd, newSockFd;
+#define MAX_ALLOWED_CONNECTIONS 3
+#define MAX_USERNAME_LENGTH 40
+#define MAX_MESSAGE_LENGTH 1024
+
+int sockFd;
+struct socketObj {
+  int socketFd;
+  char *username;
+};
+
+struct messageObj {
+  char *message;
+  char *from;
+} msgObj;
+
+struct socketObj connectedSockets[MAX_ALLOWED_CONNECTIONS];
+int connectedSocketsCount = 0;
+
 void printErrorAndExit(const char *errorMsg) {
   perror(errorMsg);
   close(sockFd);
-  close(newSockFd);
+  for (int i = 0; i < connectedSocketsCount; i++) {
+    close(connectedSockets[i].socketFd);
+  }
   exit(1);
 }
 
-int main() {
+void *acceptNewSocketWhenNeeded() {
+  if (listen(sockFd, 5) == -1) {
+    printErrorAndExit("Error in listening for reqeests");
+  } else {
+    printf("Listening for requests..\n");
+  }
+
+  struct sockaddr_in client1;
+  socklen_t clientAddrLen = sizeof(client1);
+  int newSockFd1 = accept(sockFd, (struct sockaddr *)&client1, &clientAddrLen);
+  if (newSockFd1 == -1) {
+    printErrorAndExit("Error in accepting new connection");
+  } else {
+    printf("New connection accepted\n");
+  }
+  struct socketObj newSocketConn;
+  char username[MAX_USERNAME_LENGTH];
+  if (recv(newSockFd1, username, sizeof(username), 0) == -1) {
+    printErrorAndExit("Error in receiving username");
+  }
+  printf("%s has joined the chat", username);
+  newSocketConn.socketFd = newSockFd1;
+  newSocketConn.username = username;
+  connectedSockets[connectedSocketsCount++] = newSocketConn;
+
+  char msg[MAX_MESSAGE_LENGTH];
+  while (1) {
+    bzero(msg, MAX_MESSAGE_LENGTH);
+    if (recv(newSockFd1, msg, sizeof(msg), 0) == -1) {
+      printErrorAndExit("Error in receiving msg");
+    }
+    msgObj.from = username;
+    msgObj.message = msg;
+
+    printf("\n%s: %s\n", username, msg);
+    for (int i = 0; i < connectedSocketsCount; i++) {
+      if (connectedSockets[i].socketFd == newSockFd1) {
+        continue;
+      }
+      if (send(connectedSockets[i].socketFd, (char *)&msgObj, sizeof(msg), 0) ==
+          -1) {
+        printf("Error in sending message");
+      } else {
+        printf("Message sent to client");
+      }
+    }
+  }
+  return NULL;
+}
+
+int main(int argc, char **argv) {
+  if (argc < 2) {
+    printErrorAndExit("Enter port number as second argument!");
+  }
 
   sockFd = socket(AF_INET, SOCK_STREAM, 0);
   if (sockFd == -1)
@@ -24,7 +97,7 @@ int main() {
     printf("Successfully socket created\n");
 
   struct sockaddr_in server;
-  server.sin_port = 8889;
+  server.sin_port = atoi(argv[1]);
   server.sin_family = AF_INET;
   server.sin_addr.s_addr = INADDR_ANY;
 
@@ -34,38 +107,14 @@ int main() {
     printf("Successfully binded\n");
   }
 
-  if (listen(sockFd, 5) == -1) {
-    printErrorAndExit("Error in listening for reueests");
-  } else {
-    printf("Listening for requests..\n");
+  pthread_t threads[MAX_ALLOWED_CONNECTIONS];
+  for (int i = 0; i < MAX_ALLOWED_CONNECTIONS; i++) {
+    pthread_create(&threads[i], NULL, acceptNewSocketWhenNeeded, NULL);
+  }
+  pthread_exit(NULL);
+  for (int i = 0; i < connectedSocketsCount; i++) {
+    close(connectedSockets[i].socketFd);
   }
 
-  struct sockaddr_in client;
-  socklen_t clientAddrLen = sizeof(client);
-  newSockFd = accept(sockFd, (struct sockaddr *)&client, &clientAddrLen);
-  if (newSockFd == -1) {
-    printErrorAndExit("Error in accepting connection");
-  } else {
-    printf("New connection accepted");
-  }
-
-  char msg[100];
-  int count = 0;
-  while (1) {
-    bzero(msg, 100);
-    if (recv(newSockFd, msg, sizeof(msg), 0) == -1) {
-      printErrorAndExit("Error in receiving msg");
-    }
-    printf("\nClient: %s\n", msg);
-
-    scanf("%s", msg);
-    if (send(newSockFd, msg, sizeof(msg), 0) == -1) {
-      printf("Error in sending message");
-    }
-
-    if (strncmp(msg, "exit", 4) == 0)
-      break;
-  }
-  close(sockFd);
-  close(newSockFd);
+  return 0;
 }
