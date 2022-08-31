@@ -26,7 +26,7 @@ struct messageObj {
 void *receiveMessagesFromServer() {
   struct messageObj msgObj;
   while (1) {
-    if (recv(sockFd, (char *)&msgObj, sizeof(msgObj), 0) == -1) {
+    if (recv(sockFd, (char *)&msgObj, sizeof(msgObj), 0) <= -0) {
       printErrorAndExit("Error in receiving...");
     } else {
       if (strlen(msgObj.message))
@@ -73,9 +73,11 @@ int main(int argc, char **argv) {
 
   char msg[MAX_MESSAGE_LENGTH];
   while (1) {
-    bzero(msg, MAX_MESSAGE_LENGTH);
-    scanf("%[^\n]", msg);
-    if (send(sockFd, msg, sizeof(msg), 0) == -1) {
+    // bzero(msg, MAX_MESSAGE_LENGTH);
+    // scanf("%[^\n]", msg);
+    // scanf("%[^\n]\n", msg);
+    scanf("%s", msg);
+    if (send(sockFd, msg, sizeof(msg), 0) <= 0) {
       printErrorAndExit("Error in sending..");
     }
     if (strncmp(msg, "exit", 4) == 0)
