@@ -1,3 +1,4 @@
+#include "headers/utils.h"
 #include <netinet/in.h>
 #include <pthread.h>
 #include <stdio.h>
@@ -12,11 +13,11 @@
 #define MAX_USERNAME_LENGTH 15
 
 int sockFd;
-void printErrorAndExit(const char *errorMsg) {
-  perror(errorMsg);
-  close(sockFd);
-  exit(1);
-}
+// void printErrorAndExit(const char *errorMsg) {
+// perror(errorMsg);
+//   close(sockFd);
+//   exit(1);
+// }
 
 struct messageObj {
   char message[MAX_MESSAGE_LENGTH];
@@ -63,21 +64,30 @@ int main(int argc, char **argv) {
   pthread_create(&thread1, NULL, receiveMessagesFromServer, NULL);
 
   char username[MAX_USERNAME_LENGTH];
+getUserName:
   printf("Enter username: ");
   scanf("%s", username);
+  if (strlen(username) < 3) {
+    printf("Please enter a name greater than 2 characters\n");
+    goto getUserName;
+  }
   username[strlen(username)] = '\0';
 
   if (send(sockFd, username, sizeof(username), 0) == -1) {
     printErrorAndExit("Error in sending..");
   }
+  int userCount;
+  check(recv(sockFd, (char *)&userCount, sizeof(userCount), 0),
+        "Error in receiving...");
+  printf("\n%d other user(s) in the room right now\n", userCount);
+  printf("\nWelcome to C-Chat!\nEnter a message to broadcast it to everyone "
+         "else in room.");
 
   char msg[MAX_MESSAGE_LENGTH];
   while (1) {
-    // bzero(msg, MAX_MESSAGE_LENGTH);
-    // scanf("%[^\n]", msg);
-    // scanf("%[^\n]\n", msg);
-    scanf("%s", msg);
-    if (send(sockFd, msg, sizeof(msg), 0) <= 0) {
+    bzero(msg, MAX_MESSAGE_LENGTH);
+    fgets(msg, MAX_MESSAGE_LENGTH, stdin);
+    if (strlen(msg) > 1 && send(sockFd, msg, sizeof(msg), 0) <= 0) {
       printErrorAndExit("Error in sending..");
     }
     if (strncmp(msg, "exit", 4) == 0)

@@ -1,3 +1,4 @@
+#include "headers/utils.h"
 #include <netinet/in.h>
 #include <pthread.h>
 #include <stdio.h>
@@ -28,15 +29,14 @@ struct messageObj {
 struct socketObj connectedSockets[MAX_ALLOWED_CONNECTIONS];
 int connectedSocketsCount = 0;
 
-void printErrorAndExit(const char *errorMsg) {
-  errorFound = 1;
-  perror(errorMsg);
-  close(thisServerSockFd);
-  for (int i = 0; i < connectedSocketsCount; i++) {
-    close(connectedSockets[i].socketFd);
-  }
-  exit(1);
-}
+// void printErrorAndExit(const char *errorMsg) {
+//   perror(errorMsg);
+//   close(thisServerSockFd);
+//   for (int i = 0; i < connectedSocketsCount; i++) {
+//     close(connectedSockets[i].socketFd);
+//   }
+//   exit(1);
+// }
 void sendMessageToAllConnectedClients(char *from, char *message,
                                       int fromSocketId) {
 
@@ -76,9 +76,14 @@ void *acceptNewSocketWhenNeeded() {
   if (recv(newSockFd, username, sizeof(username), 0) == -1) {
     printErrorAndExit("Error in receiving username");
   }
+  check(send(newSockFd, (char *)&connectedSocketsCount,
+             sizeof(connectedSocketsCount), 0),
+        "Error in sending user count to client");
   newSocketConn.socketFd = newSockFd;
   strcpy(newSocketConn.username, username);
   connectedSockets[connectedSocketsCount++] = newSocketConn;
+
+  // sending the number of users present in room to client.
 
   char newClientJoinedMessage[40];
   strcat(newClientJoinedMessage, username);
