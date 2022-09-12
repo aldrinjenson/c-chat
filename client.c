@@ -9,9 +9,6 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#define MAX_MESSAGE_LENGTH 1024
-#define MAX_USERNAME_LENGTH 15
-
 int sockFd;
 // void printErrorAndExit(const char *errorMsg) {
 // perror(errorMsg);
