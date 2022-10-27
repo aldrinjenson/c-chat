@@ -8,6 +8,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
+// #include <curses.h>
 
 #define MAX_ALLOWED_CONNECTIONS 3
 #define MAX_USERNAME_LENGTH 15
